@@ -1,0 +1,9 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Recordings, screenshots and conversions
+output/
+my_recording.wav
