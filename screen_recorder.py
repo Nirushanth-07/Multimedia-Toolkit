@@ -61,10 +61,14 @@ class ScreenRecorder:
         self.fps = fps
         self.scale = scale
         self.show_cursor = show_cursor
+        self.audio = None            # optional AudioRecorder recording alongside
         # most codecs need even dimensions
         self.width = int(area["width"] * scale) // 2 * 2
         self.height = int(area["height"] * scale) // 2 * 2
         self.paused = False
+        self.stop_requested = False  # set from another thread (e.g. the TUI) to finish recording
+        self.active_time = 0.0       # recorded seconds, excluding pauses
+        self.phase = "idle"          # idle -> recording -> encoding -> done
         self.frames_written = 0
         self.frames_captured = 0
         self._queue = queue.Queue(maxsize=fps * 2)
@@ -95,8 +99,11 @@ class ScreenRecorder:
         finally:
             writer.release()
 
-    def run(self, duration=None, audio=None, quiet=False):
-        """Capture until Q / Ctrl+C / duration. `audio` is an optional AudioRecorder kept in sync."""
+    def run(self, duration=None, audio=None, quiet=False, keyboard=True):
+        """Capture until Q / Ctrl+C / stop_requested / duration.
+
+        `audio` is an optional AudioRecorder kept in sync with pauses.
+        """
         self._writer = threading.Thread(target=self._write_loop, daemon=True)
         self._writer.start()
         frame_interval = 1.0 / self.fps
@@ -105,23 +112,25 @@ class ScreenRecorder:
         last_tick = None
 
         try:
-            with screen_capture() as sct, KeyListener() as keys:
+            with screen_capture() as sct, KeyListener(keyboard) as keys:
                 if audio:
                     audio.start()
+                self.phase = "recording"
                 last_tick = time.perf_counter()
                 next_status = 0.0
                 while not self._writer_error:
                     key = keys.get()
-                    if key == "q":
+                    if key == "q" or self.stop_requested:
                         break
                     if key == "p":
                         self.paused = not self.paused
-                        if audio:
-                            audio.paused = self.paused
+                    if audio:
+                        audio.paused = self.paused
 
                     now = time.perf_counter()
                     if not self.paused:
                         active_time += now - last_tick
+                        self.active_time = active_time
                     last_tick = now
                     if duration and active_time >= duration:
                         break
@@ -197,8 +206,12 @@ def finalize(raw_video, output, audio_file=None, quiet=False):
 
 def record_screen(output=None, duration=None, fps=24, monitor=0, region=None, select=False,
                   scale=1.0, audio=False, audio_device=None, show_cursor=True, delay=3,
-                  raw=False, quiet=False):
-    """Record the screen and return the saved file path."""
+                  raw=False, quiet=False, keyboard=True, on_start=None):
+    """Record the screen and return the saved file path.
+
+    on_start: optional callback receiving the ScreenRecorder before capture begins, so callers
+              can pause it, stop it (`stop_requested = True`) and read `active_time` / `phase`.
+    """
     enable_dpi_awareness()
     path = timestamped_path("screen", "mp4", output)
     extension = os.path.splitext(path)[1].lower()
@@ -243,11 +256,15 @@ def record_screen(output=None, duration=None, fps=24, monitor=0, region=None, se
               f"{recorder.width}x{recorder.height} @ {fps} fps"
               + ("  +  🎙 microphone" if audio else ""))
         print("Controls: [P] pause/resume   [Q] stop   (Ctrl+C also stops)")
+    recorder.audio = audio_recorder
+    if on_start:
+        on_start(recorder)
     if delay:
         countdown(delay, "Recording starts in")
 
     try:
-        seconds = recorder.run(duration, audio_recorder, quiet)
+        seconds = recorder.run(duration, audio_recorder, quiet, keyboard)
+        recorder.phase = "encoding"
         if recorder.frames_written == 0:
             raise RuntimeError("Nothing was recorded.")
 
@@ -266,6 +283,7 @@ def record_screen(output=None, duration=None, fps=24, monitor=0, region=None, se
             if os.path.exists(name):
                 os.remove(name)
 
+    recorder.phase = "done"
     if not quiet:
         actual_fps = recorder.frames_captured / seconds if seconds else 0
         print(f"✅ Saved {path}  ({format_duration(seconds)}, {format_size(os.path.getsize(path))})")

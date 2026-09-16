@@ -35,6 +35,7 @@ class AudioRecorder:
         self.channels = min(channels, info["max_input_channels"]) or 1
         self.level = 0.0          # current peak level 0.0 - 1.0
         self.paused = False
+        self.stop_requested = False  # set from another thread (e.g. the TUI) to finish recording
         self.frames_written = 0
         self.overflows = 0
         self._queue = queue.Queue()
@@ -96,10 +97,14 @@ def level_bar(level, width=30):
     return "█" * filled + "░" * (width - filled)
 
 
-def record(output=None, duration=None, samplerate=None, channels=1, device=None, quiet=False):
+def record(output=None, duration=None, samplerate=None, channels=1, device=None, quiet=False,
+           keyboard=True, on_start=None):
     """Record audio and return the path of the saved file.
 
     duration: seconds to record, or None to record until the user presses Q / Ctrl+C.
+    keyboard: listen for P/Q key presses in the console.
+    on_start: optional callback receiving the running AudioRecorder, so callers can pause it
+              (`recorder.paused`) or stop it (`recorder.stop_requested = True`).
     """
     path = timestamped_path("voice", "wav", output)
     extension = os.path.splitext(path)[1].lower()
@@ -121,10 +126,12 @@ def record(output=None, duration=None, samplerate=None, channels=1, device=None,
         print(f"Recording {limit}.  Controls: [P] pause/resume   [Q] stop   (Ctrl+C also stops)\n")
 
     try:
-        with KeyListener() as keys, recorder:
+        with KeyListener(keyboard) as keys, recorder:
+            if on_start:
+                on_start(recorder)
             while True:
                 key = keys.get()
-                if key == "q":
+                if key == "q" or recorder.stop_requested:
                     break
                 if key == "p":
                     recorder.paused = not recorder.paused

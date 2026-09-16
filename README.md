@@ -7,6 +7,7 @@ A collection of lightweight, open-source Python utilities for capturing audio, v
 ## Table of Contents
 - [Features](#features)
 - [Installation](#installation)
+- [Terminal UI](#terminal-ui)
 - [Quick Start (Interactive Menu)](#quick-start-interactive-menu)
 - [Voice Recorder](#voice-recorder)
 - [Screen Recorder](#screen-recorder)
@@ -47,9 +48,54 @@ You don't need to install ffmpeg separately, because the `imageio-ffmpeg` packag
 
 ---
 
+## Terminal UI
+
+The easiest way to use the toolkit is the full-screen grey terminal interface:
+
+```bash
+python ui.py
+```
+
+```
+▌ MULTIMEDIA TOOLKIT                          ● busy: voice recorder · ffmpeg ✓ · mic ✓ · 21:54:50
+┌ TOOLS ──────────────┐  VOICE RECORDER
+│ 1  Voice Recorder   │  ┌ SETTINGS ─────────────────────┐ ┌ MONITOR ─────────────────────────┐
+│ 2  Screen Recorder  │  │ Microphone  System default  ▼ │ │  00:00:12                        │
+│ 3  Screenshot       │  │ Channels    Mono            ▼ │ │  ● RECORDING                     │
+│ 4  Converter        │  │ Format      MP3             ▼ │ │  ▮▮▮▮▮▮▮▮▮▮▮▯▯▯▯▯▯▯▯▯▯  -18.2 dB  │
+│ 5  Files            │  │ Time limit  none              │ │  ▁▂▃▅▇▆▄▃▂▅▇█▆▃                  │
+│                     │  └───────────────────────────────┘ └──────────────────────────────────┘
+│                     │   ● Record [R]   ❚❚ Pause [P]   ■ Stop [S]
+│                     │  ┌ LOG ─────────────────────────────────────────────────────────────┐
+│                     │  │ 21:54:52 ✓ Saved output/voice_20260916_215449.mp3 (00:00:02)    │
+└─────────────────────┘  └──────────────────────────────────────────────────────────────────┘
+```
+
+| Tool | What you get |
+|------|--------------|
+| **Voice Recorder** | Microphone picker, big timer, live decibel meter and level history |
+| **Screen Recorder** | Monitor / mouse-selected area, FPS, scale, countdown, microphone and cursor options, live frame counter |
+| **Screenshot** | Capture modes, delay, format, clipboard copy and a greyscale preview of the last capture |
+| **Converter** | File browser, media details, format and quality, trimming, resizing, frame rate, mute, progress bar |
+| **Files** | Everything in `output/`: open it, send it to the converter, delete it, or open the folder |
+
+| Key | Action |
+|-----|--------|
+| `1`–`5` | Switch tool |
+| `R` | Record, capture or convert (depending on the tool) |
+| `P` | Pause or resume a recording |
+| `S` | Stop a recording |
+| `O` | Open the `output/` folder |
+| `C` | Clear the log |
+| `Q` | Quit (asks again if something is still running) |
+
+Everything also works with the mouse. Use Windows Terminal or any modern terminal at least 110×36 characters for the best layout.
+
+---
+
 ## Quick Start (Interactive Menu)
 
-To choose a tool from a menu instead of typing command-line options, run:
+For a simple text menu, or in terminals that can't run the full UI, run:
 
 ```bash
 python toolkit.py
@@ -209,7 +255,8 @@ python converter.py --info video.mp4                            # show duration,
 
 ```
 Multimedia-Toolkit/
-├── toolkit.py          # interactive menu for all tools
+├── ui.py               # full-screen grey terminal UI (Textual)
+├── toolkit.py          # simple text menu for all tools
 ├── voice_recorder.py   # microphone recording
 ├── screen_recorder.py  # screen recording (+ optional audio)
 ├── screenshot.py       # screenshots
@@ -246,6 +293,7 @@ record_screen(duration=5, audio=True, delay=0)
 | Black screen recording on macOS | Allow Terminal or your IDE under **System Settings → Privacy & Security → Screen Recording** |
 | `ffmpeg not found` | `pip install imageio-ffmpeg` |
 | P/Q keys don't respond | The terminal must be interactive. Use `Ctrl+C` to stop instead |
+| The UI looks broken or cramped | Use Windows Terminal (not the old console) and enlarge the window |
 
 ---
 

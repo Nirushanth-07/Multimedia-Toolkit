@@ -202,8 +202,11 @@ def build_command(ffmpeg, source, target, info, start=None, end=None, bitrate=No
 
 def convert(source, target, start=None, end=None, bitrate=None, quality="medium", width=None,
             height=None, fps=None, mute=False, samplerate=None, channels=None,
-            overwrite=False, quiet=False):
-    """Convert `source` to `target` (format taken from the extension). Returns the target path."""
+            overwrite=False, quiet=False, progress=None):
+    """Convert `source` to `target` (format taken from the extension). Returns the target path.
+
+    progress: optional callback(fraction 0-1, seconds_done, seconds_total) called during encoding.
+    """
     ffmpeg = require_ffmpeg()
     if os.path.abspath(source) == os.path.abspath(target):
         raise ConversionError("Input and output must be different files.")
@@ -232,13 +235,17 @@ def convert(source, target, start=None, end=None, bitrate=None, quality="medium"
                                text=True, encoding="utf-8", errors="replace")
     try:
         for line in process.stdout:
-            if quiet or not line.startswith("out_time_us=") or not total:
+            if not line.startswith("out_time_us=") or not total:
                 continue
             try:
                 done = int(line.split("=", 1)[1]) / 1_000_000
             except ValueError:
                 continue
             pct = max(0.0, min(done / total, 1.0))
+            if progress:
+                progress(pct, done, total)
+            if quiet:
+                continue
             bar = "█" * int(pct * 30) + "░" * (30 - int(pct * 30))
             print(f"\r  {bar} {pct * 100:5.1f}%  {format_duration(done)} / {format_duration(total)}",
                   end="", flush=True)

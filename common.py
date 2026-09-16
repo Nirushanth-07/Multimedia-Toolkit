@@ -102,7 +102,8 @@ class KeyListener:
             key = keys.get()   # returns a lowercase character or None
     """
 
-    def __init__(self):
+    def __init__(self, enabled=True):
+        self.enabled = enabled
         self._keys = []
         self._lock = threading.Lock()
         self._stop = threading.Event()
@@ -110,7 +111,7 @@ class KeyListener:
         self._old_term = None
 
     def __enter__(self):
-        if not sys.stdin or not sys.stdin.isatty():
+        if not self.enabled or not sys.stdin or not sys.stdin.isatty():
             return self  # non-interactive: no keyboard control, Ctrl+C still works
         if sys.platform == "win32":
             target = self._run_windows
